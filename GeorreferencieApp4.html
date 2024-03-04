@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-database.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCOrDY7elYTuINVLgwIMq9PizV34j7-3MA&callback=initMap&libraries=geometry" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+    <!-- Adicione este script junto com os outros scripts do Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-auth.js"></script>
+   
+    <!-- Adicione este script para gerar um gráfico com localidades por distrito -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   
+     <!-- Adicione a biblioteca chartjs-chart-3d -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-3d"></script>
+
+
+    
+    
+    <style>
+       body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4; /* Cor de fundo geral */
+    color: #333; /* Cor do texto principal */
+}
+
+h1 {
+    margin: 20px;
+    font-size: 2em;
+    color: #b2070a; /* Cor do título */
+    text-align: center;
+    margin-bottom: 50px;
+    transition: color 0.5s ease;
+}
+
+h1:hover {
+    color: #07b221; /* Cor ao passar o mouse */
+}
+
+.container input[disabled],
+.container button[disabled] {
+    pointer-events: none;
+    background-color: #ddd; /* Cor de fundo para elementos desativados */
+    color: #777; /* Cor do texto para elementos desativados */
+}
+
+.container {
+    max-width: 60%;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: #fff; /* Cor de fundo do container */
+    border: 2px solid #333; /* Cor da borda do container */
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra do container */
+    color: #333; /* Cor do texto dentro do container */
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+input,
+button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    transition: transform 0.3s ease;
+}
+
+input:focus,
+button:focus {
+    transform: scale(1.1);
+}
+
+button {
+    background-color: #e50914; /* Cor de fundo do botão */
+    color: #fff; /* Cor do texto do botão */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    display: block;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #046a02; /* Cor ao passar o mouse sobre o botão */
+}
+
+ul {
+    list-style-type: black;
+    padding: 0;
+}
+
+li {
+    background-color: #f6ecec;
+    margin: 5px 0;
+    padding: 8px;
+    border: 1px solid #fff;
+    border-radius: 5px;
+}
+
+#modalOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.tela {
+    max-width: 60%;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: #fff;
+    border: 2px solid #333;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    color: #333;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Restante do seu código... */
+
+        
+
+        button {
+        background-color: #e50914;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        display: block;
+        transition: background-color 0.3s ease, transform 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #046a02;
+        transform: scale(1.30);
+    }
+
+    /* Adicionando efeito keyframe */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .container, .tela {
+        animation: fadeInUp 0.5s ease;
+    }
+
+    /* Adicionando regras de mídia para diferentes tamanhos de tela */
+    @media (max-width: 768px) {
+        .container, .tela {
+            max-width: 90%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        h1 {
+            font-size: 1.5em;
+        }
+
+        .container, .tela {
+            max-width: 95%;
+        }
+    }
+
+  
+   
+    </style>
+</head>
+
+<body>
+    
+   
+    <div class="container">
+
+        <h1> Georreferenciamento</h1>
+
+        <label for= "servidorCadastrante">  Matrícula</label>
+        <input type= "text" id="servidorCadastrante" placeholder="30123456">
+       
+        <label for= "nomedeGuerra">Nome de guerra precedido do posto ou graduação</label>
+       <input type= "text" id="nomedeGuerra" placeholder="SGT PM FULANO DE TAL">
+
+        <label for= "distrito">Distrito (ou Povoado):</label>
+        <input type="text" id="distrito" placeholder="Digite o Distrito"
+
+        <label for= "localidaDistrito">Localidade do Distrito</label>
+        <input type= "text" id= "localidadeDistrito" placeholder="Digite a localidade">
+        
+        <label for= "coordenadas">Coordenadas (Latitude ; Longitude):</label>
+        <input type= "text" id="coordenadas" placeholder="Exemplo: -9.5923306 ; -40.3700923">
+        <button onclick="obterLocalizacao()"> GERAR COORDENADAS AGORA</button>
+        <button onclick="visualizarNoMapa()">Visualizar no Google Maps</button>
+        <button id="btnCadastrar" onclick="cadastrarCoordenadas()">CADASTRAR LOCALIDADE DIGITADA</button>
+        <!-- Adicione este botão ao seu HTML -->
+        <button onclick="gerarPDF()">Gerar Relatório PDF</button>
+        <button onclick="gerarPlanilha()">Gerar Planilha</button>
+        <button onclick="gerarPlanilhaPorDistrito()">Gerar Planilha por Distrito</button>
+        <button onclick="gerarGraficoBarras()">Gerar Gráfico de Barras</button>
+
+    <!-- SCRIPT para verificar a internet e obter coordenadas -->
+<script>
+    function verificarInternet() {
+      if (navigator.onLine) { // Verifica se o navegador está online
+        obterLocalizacao();
+      } else {
+        // Use o SweetAlert2 para exibir um alerta moderno
+        Swal.fire({
+          icon: 'error',
+          title: 'Você está offline!',
+          text: 'As coordenadas serão salvas e enviadas quando estiver online.',
+        });
+        armazenarLocalmente();
+      }
+    }
+  
+    function obterLocalizacao() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            preencherCampos(position.coords.latitude, position.coords.longitude);
+  
+            // Enviar coordenadas quando estiver online
+            if (navigator.onLine) {
+              enviarCoordenadas(position.coords.latitude, position.coords.longitude);
+            }
+          },
+          function (error) {
+            console.error('Erro ao obter localização:', error.message);
+          }
+        );
+      } else {
+        alert('Geolocalização não suportada pelo seu navegador.');
+      }
+    }
+  
+    function preencherCampos(latitude, longitude) {
+      const coordenadas = `${latitude};${longitude}`;
+      document.getElementById('coordenadas').value = coordenadas;
+    }
+  
+    function armazenarLocalmente() {
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          const coordenadaOffline = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+  
+          const coordenadasOffline = JSON.parse(localStorage.getItem('coordenadasOffline')) || [];
+          coordenadasOffline.push(coordenadaOffline);
+          localStorage.setItem('coordenadasOffline', JSON.stringify(coordenadasOffline));
+        },
+        function (error) {
+          console.error('Erro ao obter localização offline:', error.message);
+        }
+      );
+    }
+  </script>
+  
+
+        <ul id="listaCoordenadas"></ul>
+    </div>
+
+
+     
+     <canvas id="graficoBarras"></canvas> 
+     
+     <canvas id="graficoSetores"></canvas> 
+
+    <script>
+        // Configurações do Firebase
+        const firebaseConfig = {
+           
+            apiKey: "AIzaSyBH6oSiXmr5NZoB14ZyfzqxS12qHFxGp6M",
+            authDomain: "georreferencie.firebaseapp.com",
+            databaseURL: "https://georreferencie-default-rtdb.firebaseio.com",
+            projectId: "georreferencie",
+            storageBucket: "georreferencie.appspot.com",
+            messagingSenderId: "970504990093",
+            appId: "1:970504990093:web:a416703e96af52c41d61c4",
+            measurementId: "G-W761SSW4Y6",
+
+
+
+        };
+
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = firebase.auth(); // Referência para o serviço de autenticação
+
+
+        // Referência ao Realtime Database do Firebase
+        const db = getDatabase(app);
+
+        // Função para inicializar o mapa (substitua conforme necessário)
+        function initMap() {
+            // Seu código de inicialização do mapa aqui
+        }
+
+        // Função para obter referência para o nó 'coordenadas' no banco de dados
+        function obterReferenciaCoordenadas() {
+            return firebase.database().ref('coordenadas');
+        }
+
+        // Função para carregar as coordenadas ao iniciar
+        function carregarCoordenadas() {
+            const coordenadasRef = obterReferenciaCoordenadas();
+
+            coordenadasRef.once('value')
+                .then(snapshot => {
+                    const dados = snapshot.val() || {};
+
+                    // Chamar função para exibir os dados no HTML
+                    exibirCoordenadasNoHTML(dados);
+                })
+                .catch(error => {
+                    console.error("Erro ao carregar coordenadas:", error);
+                });
+        }
+
+        // Chamar a função para carregar as coordenadas ao iniciar
+        document.addEventListener("DOMContentLoaded", function () {
+            carregarCoordenadas();
+        });
+
+        // Função para exibir as coordenadas no HTML
+        /*function exibirCoordenadasNoHTML(dados) {
+            const listaCoordenadas = document.getElementById('listaCoordenadas');*/
+
+            // Limpar lista antes de adicionar novos dados
+            listaCoordenadas.innerHTML = "";
+
+            // Iterar sobre os dados e adicionar ao HTML
+            for (const key in dados) {
+                if (dados.hasOwnProperty(key)) {
+                    const coordenada = dados[key];
+                    const linha = `<li>${coordenada.distrito}, ${coordenada.localidadeDistrito}, ${coordenada.coordenadas}, ${coordenada.servidorCadastrante}, ${coordenada.nomedeGuerra}</li>`;
+                    listaCoordenadas.innerHTML += linha;
+                }
+            }
+        
+
+        // Função para cadastrar as coordenadas
+        function cadastrarCoordenadas() {
+            const distritoInput = document.getElementById("distrito");
+            const localidadeDistritoInput = document.getElementById("localidadeDistrito");
+            const coordenadasInput = document.getElementById("coordenadas");
+            const servidorCadastranteInput = document.getElementById("servidorCadastrante");
+            const nomedeGuerraInput= document.getElementById("nomedeGuerra");
+
+            const distrito = distritoInput.value.trim();
+            const localidadeDistrito = localidadeDistritoInput.value.trim();
+            const coordenadas = coordenadasInput.value.trim();
+            const servidorCadastrante = servidorCadastranteInput.value.trim();
+            const nomedeGuerra = nomedeGuerraInput.value.trim();
+
+            // Verificar se os campos estão preenchidos
+            if (distrito === "" || localidadeDistrito === "" || coordenadas === "" || servidorCadastrante === "" || nomedeGuerra === "") {
+                alert("Preencha todos os campos!");
+                return;
+            }
+
+            // Verificar se o servidor cadastrante está no formato correto
+            const servidorRegex = /^30\d{6}$/;
+            if (!servidorRegex.test(servidorCadastrante)) {
+                alert("Servidor Cadastrante inválido. Deve começar por 30 e ter mais 6 dígitos.");
+                return;
+            }
+
+            // Verificar se o formato de coordenadas é válido
+            const coordenadasFormatoRegex = /^-?\d+(\.\d+)?;\s*-?\d+(\.\d+)?$/;
+            if (!coordenadasFormatoRegex.test(coordenadas)) {
+                alert("Formato de coordenadas inválido. Use o formato: Latitude; Longitude");
+                return;
+            }
+
+            // Criar objeto de coordenadas em formato JSON
+            const coordenadasJSON = {
+                distrito: distrito,
+                localidadeDistrito: localidadeDistrito,
+                coordenadas: coordenadas,
+                servidorCadastrante: servidorCadastrante,
+                nomedeGuerra: nomedeGuerra, 
+            };
+
+   
+
+
+
+            // Obter referência para o nó 'coordenadas' no banco de dados
+            const coordenadasRef = obterReferenciaCoordenadas();
+
+            // Verificar se a localidade já existe
+            coordenadasRef.orderByChild('distrito_localidade').equalTo(`${distrito}_${localidadeDistrito}`).once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        alert("Localidade já cadastrada!");
+                    } else {
+                        // Adicionar novas coordenadas ao banco de dados
+                        coordenadasRef.push(coordenadasJSON);
+
+                        // Exibir mensagem de sucesso
+                        alert("LOCALIDADE CADASTRADA COM SUCESSO!");
+
+                        // Limpar campos
+                        distritoInput.value = "";
+                        localidadeDistritoInput.value = "";
+                        coordenadasInput.value = "";
+                        servidorCadastranteInput.value = "";
+                        nomedeGuerraInput.value = "";
+
+                        // Recarregar coordenadas após o cadastro
+                        carregarCoordenadas();
+                    }
+                })
+                .catch(error => {
+                    console.error("Erro ao verificar localidade:", error);
+                });
+        }
+
+        // Função para gerar PDF do que já foi lançado
+        function gerarPDF() {
+            const coordenadasRef = obterReferenciaCoordenadas();
+
+            coordenadasRef.once('value')
+                .then(snapshot => {
+                    const dados = snapshot.val() || {};
+
+                    // Criar opções para o PDF
+                    const opcoesPDF = {
+                        margin: 10,
+                        filename: 'relatorio_coordenadas.pdf',
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2 },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    // Criar conteúdo HTML para o relatório
+                    const relatorioHTML = '<ul>' + Object.values(dados).map(coordenada => {
+                        return `<li>${coordenada.distrito}, ${coordenada.localidadeDistrito}, ${coordenada.coordenadas}, ${coordenada.servidorCadastrante}, ${coordenada.nomedeGuerra}</li>`;
+                    }).join('') + '</ul>';
+
+                    // Gerar PDF usando html2pdf.js
+                    html2pdf().from(relatorioHTML).set(opcoesPDF).save();
+                })
+                .catch(error => {
+                    console.error("Erro ao carregar coordenadas para gerar PDF:", error);
+                });
+        }
+
+        // Função para visualizar coordenadas no Google Maps
+
+        // Função para visualizar coordenadas no Google Maps
+function visualizarNoMapa() {
+    const coordenadasInput = document.getElementById("coordenadas").value;
+
+    if (coordenadasInput) {
+        const [latitude, longitude] = coordenadasInput.split(';').map(coord => coord.trim());
+
+        if (latitude && longitude) {
+            // Construir a URL do Google Maps com as coordenadas
+            const mapaURL = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+            // Verificar se é um dispositivo móvel
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+            if (isMobile) {
+                // Se for um dispositivo móvel, redirecionar para o aplicativo do Google Maps
+                window.location.href = `comgooglemaps://?q=${latitude},${longitude}`;
+            } else {
+                // Se não for um dispositivo móvel, abrir o Google Maps no navegador
+                window.open(mapaURL, '_blank');
+            }
+        } else {
+            alert("Formato de coordenadas inválido. Use o formato: Latitude; Longitude");
+        }
+    } else {
+        alert("Insira as coordenadas antes de visualizar no mapa");
+    }
+}
+
+    </script>
+
+</script>
+
+
+
+<script>
+    // Adicione esta função para gerar a planilha do LibreOffice
+    function gerarPlanilha() {
+        const coordenadasRef = obterReferenciaCoordenadas();
+
+        coordenadasRef.once('value')
+            .then(snapshot => {
+                const dados = snapshot.val() || {};
+
+                // Criar um array de objetos para os dados
+                const dadosArray = Object.values(dados).map(coordenada => {
+                    return {
+                        Distrito: coordenada.distrito,
+                        'Localidade do Distrito': coordenada.localidadeDistrito,
+                        Coordenadas: coordenada.coordenadas,
+                        'Servidor Cadastrante': coordenada.servidorCadastrante
+                    };
+                });
+
+                // Criar um workbook do Excel
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(dadosArray), 'Relatorio_Coordenadas');
+
+                // Salvar o arquivo
+                XLSX.writeFile(workbook, 'Relatorio_Coordenadas.xlsx');
+            })
+            .catch(error => {
+                console.error("Erro ao carregar coordenadas para gerar a planilha:", error);
+            });
+    }
+</script>
+
+
+<script>// Modifique a função gerarPlanilha() no seu script
+    function gerarPlanilhaPorDistrito(distrito) {
+        const coordenadasRef = obterReferenciaCoordenadas();
+    
+        coordenadasRef.once('value')
+            .then(snapshot => {
+                const dados = snapshot.val() || {};
+    
+                // Filtrar os dados por distrito
+                const dadosFiltrados = Object.values(dados).filter(coordenada => coordenada.distrito === distrito);
+    
+                // Criar um array de objetos para os dados
+                const dadosArray = dadosFiltrados.map(coordenada => {
+                    return {
+                        Distrito: coordenada.distrito,
+                        'Localidade do Distrito': coordenada.localidadeDistrito,
+                        Coordenadas: coordenada.coordenadas,
+                        'Servidor Cadastrante': coordenada.servidorCadastrante
+                    };
+                });
+    
+                // Criar um workbook do Excel
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(dadosArray), 'Relatorio_Coordenadas');
+    
+                // Salvar o arquivo
+                XLSX.writeFile(workbook, `Relatorio_Coordenadas_${distrito}.xlsx`);
+            })
+            .catch(error => {
+                console.error("Erro ao carregar coordenadas para gerar a planilha:", error);
+            });
+    }
+    
+
+
+
+
+// Função para gerar a planilha do LibreOffice por distrito
+function gerarPlanilhaPorDistrito() {
+    const coordenadasRef = obterReferenciaCoordenadas();
+
+    coordenadasRef.once('value')
+        .then(snapshot => {
+            const dados = snapshot.val() || {};
+
+            // Criar um objeto para armazenar os dados por distrito
+            const dadosPorDistrito = {};
+
+            // Organizar os dados por distrito
+            Object.values(dados).forEach(coordenada => {
+                const distrito = coordenada.distrito;
+                const localidade = coordenada.localidadeDistrito;
+
+                if (!dadosPorDistrito[distrito]) {
+                    dadosPorDistrito[distrito] = [];
+                }
+
+                dadosPorDistrito[distrito].push(localidade);
+            });
+
+            // Criar um workbook do Excel
+            const workbook = XLSX.utils.book_new();
+
+            // Adicionar uma planilha para cada distrito
+            for (const distrito in dadosPorDistrito) {
+                if (dadosPorDistrito.hasOwnProperty(distrito)) {
+                    const localidades = dadosPorDistrito[distrito];
+                    const dadosArray = localidades.map(localidade => {
+                        return {
+                            'Distrito': distrito,
+                            'Localidade do Distrito': localidade,
+                        };
+                    });
+
+                    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(dadosArray), distrito);
+                }
+            }
+
+            // Salvar o arquivo
+            XLSX.writeFile(workbook, 'Relatorio_Coordenadas_Por_Distrito.xlsx');
+        })
+        .catch(error => {
+            console.error("Erro ao carregar coordenadas para gerar a planilha:", error);
+        });
+}
+
+// Função para gerar o gráfico de barras
+function gerarGraficoBarras() {
+    const coordenadasRef = obterReferenciaCoordenadas();
+
+    coordenadasRef.once('value')
+        .then(snapshot => {
+            const dados = snapshot.val() || {};
+
+            // Organizar os dados por distrito
+            const dadosPorDistrito = {};
+            for (const key in dados) {
+                if (dados.hasOwnProperty(key)) {
+                    const coordenada = dados[key];
+                    const distrito = coordenada.distrito;
+
+                    if (!dadosPorDistrito[distrito]) {
+                        dadosPorDistrito[distrito] = [coordenada]; // Armazenar as localidades para cada distrito
+                    } else {
+                        dadosPorDistrito[distrito].push(coordenada);
+                    }
+                }
+            }
+
+            // Obter as chaves (distritos) e valores (quantidade de localidades) dos dados organizados
+            const distritos = Object.keys(dadosPorDistrito);
+            const localidadesPorDistrito = Object.values(dadosPorDistrito).map(localidades => localidades.length);
+
+            // Configurar o contexto do canvas
+            const ctx = document.getElementById('graficoBarras').getContext('2d');
+
+            // Configurar o gráfico de barras
+            const graficoBarras = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: distritos,
+                    datasets: [{
+                        label: 'Quantidade de Localidades por Distrito',
+                        data: localidadesPorDistrito,
+                        backgroundColor: 'rgba(139, 69, 19, 0.5)', // Cor de preenchimento das barras (tons de camurça mais escuros)
+                        borderColor: 'rgba(139, 69, 19, 1)', // Cor da borda das barras (tons de camurça mais escuros)
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const distrito = distritos[context.dataIndex];
+                                    const localidades = dadosPorDistrito[distrito].map(coordenada => coordenada.localidadeDistrito);
+                                    return `Localidades: ${localidades.join(', ')}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Adicionar evento de clique nas barras para exibir localidades
+            graficoBarras.config.options.onClick = (event, elements) => {
+                const dataIndex = elements[0]?.index;
+                if (dataIndex !== undefined) {
+                    const distrito = distritos[dataIndex];
+                    const localidades = dadosPorDistrito[distrito].map(coordenada => coordenada.localidadeDistrito);
+
+                    alert(`Localidades do Distrito ${distrito}:\n${localidades.join(', ')}`);
+                }
+            };
+        })
+        .catch(error => {
+            console.error("Erro ao carregar coordenadas para gerar o gráfico:", error);
+        });
+}
+
+
+</script>
+
+
+
+</body>
+
+</html>
